@@ -1,4 +1,6 @@
-#[derive(Clone, Debug)]
+use serde::{Deserialize, Serialize};
+use std::{env, fs, io};
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Task {
     pub id: usize,
     pub description: String,
@@ -14,7 +16,7 @@ impl Task {
         }
     }
 }
-
+#[derive(Serialize, Deserialize)]
 pub struct TaskList {
     max_id: usize,
     tasks: Vec<Task>,
@@ -55,14 +57,70 @@ impl TaskList {
     }
 }
 
+// fn add_task(task_list: TaskList, args: Vec<String>) {}
+
+fn print_help() {
+    const HELP_MESSAGE: &str = r#"
+USAGE: 
+cargo run -- <command> [options]
+
+COMMANDS:
+    list                    - List all tasks
+    add <description>       - Add a task with a description
+    del <id>                - Delete a task
+    done <id>               - Mark task as done
+    undo <id>               - Unmark task as done
+    help                    - Show this help
+    "#;
+
+    println!("{}", HELP_MESSAGE);
+}
+/// Save data to filesystem
+fn save_data(filename: &str, data: TaskList) -> io::Result<()> {
+    let serialized_data = serde_json::to_string_pretty(&data)?;
+    fs::write(filename, serialized_data)?;
+    Ok(())
+}
+
+fn load_data(filename: &str) -> io::Result<TaskList> {
+    let serialized_data = fs::read_to_string(filename)?;
+    let deserialized_data: TaskList = serde_json::from_str(&serialized_data)?;
+
+    Ok(deserialized_data)
+}
+
 fn main() {
-    let tasklist = TaskList::new();
-    // Parse arguments
-    // Switch argument
-    // 1. Show tasks
-    // 2. Add task
-    // 3. complete task
-    // 4. Delete task
+    const FILENAME: &str = "todo-data.json";
+
+    let mut tasklist = match load_data(FILENAME) {
+        Ok(data) => data,
+        Err(_) => TaskList::new(),
+    };
+    tasklist.add("Test1".to_string());
+    tasklist.add("Test2".to_string());
+    tasklist.add("Test3".to_string());
+
+    tasklist.complete(1);
+
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        println!("Please provide a command, usage: cargo run -- command");
+        return;
+    }
+    let command = &args[1];
+    match command.as_str() {
+        "list" => println!("List all tasks"),
+        "add" => println!("Add a task"),
+        "del" => println!("Delete a task"),
+        "done" => println!("Un-complete a task"),
+        "undo" => println!("Complete a task"),
+        "help" => print_help(),
+        _ => println!("Unknown command"),
+    }
+
+    if let Err(err) = save_data(FILENAME, tasklist) {
+        eprintln!("Failed to save todo tasks to file! \nError: {}\n\n", err);
+    }
 }
 
 #[cfg(test)]
