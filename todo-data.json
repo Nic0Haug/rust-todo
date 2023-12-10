@@ -1,34 +1,11 @@
 {
-  "max_id": 7,
   "tasks": [
     {
-      "id": 1,
-      "description": "Test1",
-      "completed": true
-    },
-    {
-      "id": 2,
-      "description": "Test2",
+      "description": "Spise middag med barna",
       "completed": false
     },
     {
-      "id": 3,
-      "description": "Test3",
-      "completed": false
-    },
-    {
-      "id": 4,
-      "description": "Test1",
-      "completed": false
-    },
-    {
-      "id": 5,
-      "description": "Test2",
-      "completed": false
-    },
-    {
-      "id": 6,
-      "description": "Test3",
+      "description": "Spise kake",
       "completed": false
     }
   ]

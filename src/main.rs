@@ -1,16 +1,14 @@
 use serde::{Deserialize, Serialize};
-use std::{env, fs, io};
+use std::{env, fmt::Arguments, fs, io};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Task {
-    pub id: usize,
     pub description: String,
     pub completed: bool,
 }
 
 impl Task {
-    pub fn new(id: usize, description: String) -> Self {
+    pub fn new(description: String) -> Self {
         Task {
-            id,
             description,
             completed: false,
         }
@@ -18,42 +16,41 @@ impl Task {
 }
 #[derive(Serialize, Deserialize)]
 pub struct TaskList {
-    max_id: usize,
     tasks: Vec<Task>,
 }
 
 impl TaskList {
     pub fn new() -> Self {
-        TaskList {
-            max_id: 1,
-            tasks: Vec::new(),
-        }
+        TaskList { tasks: Vec::new() }
     }
     pub fn add(&mut self, decription: String) {
-        self.tasks.push(Task::new(self.max_id, decription));
-        self.max_id += 1;
+        self.tasks.push(Task::new(decription));
     }
 
     pub fn delete(&mut self, id: usize) {
-        if let Some(index) = self.tasks.iter().position(|x| x.id == id) {
-            self.tasks.remove(index);
+        if self.tasks.len() >= id {
+            self.tasks.remove(id - 1);
         }
     }
 
     pub fn complete(&mut self, id: usize) {
-        if let Some(index) = self.tasks.iter().position(|x| x.id == id) {
-            self.tasks[index].completed = true;
+        if self.tasks.len() >= id {
+            self.tasks[id - 1].completed = true;
         }
     }
 
     pub fn uncomplete(&mut self, id: usize) {
-        if let Some(index) = self.tasks.iter().position(|x| x.id == id) {
-            self.tasks[index].completed = false;
+        if self.tasks.len() >= id {
+            self.tasks[id - 1].completed = false;
         }
     }
 
     pub fn get_all(&self) -> Vec<Task> {
         self.tasks.clone()
+    }
+
+    pub fn flush(&mut self) {
+        self.tasks = Vec::new();
     }
 }
 
@@ -70,6 +67,7 @@ COMMANDS:
     del <id>                - Delete a task
     done <id>               - Mark task as done
     undo <id>               - Unmark task as done
+    flush                   - Delete all tasks
     help                    - Show this help
     "#;
 
@@ -89,6 +87,67 @@ fn load_data(filename: &str) -> io::Result<TaskList> {
     Ok(deserialized_data)
 }
 
+fn display_list(tasklist: &TaskList) {
+    const DONE: &str = "✅ ";
+    const UNDO: &str = "🔳";
+    println!("{:<4}{:>3}     {:<50}", "DONE", " ID", "DESCRIPTION");
+    println!("--------------------------------");
+    for (index, task) in tasklist.get_all().iter().enumerate() {
+        println!(
+            "{:<4}{:>3}  {}",
+            if task.completed { DONE } else { UNDO },
+            index + 1,
+            task.description
+        );
+        //
+    }
+    println!("--------------------------------\n");
+}
+
+fn add_task(tasklist: &mut TaskList, args: Vec<String>) {
+    if args.len() < 3 {
+        eprintln!("Failed to add task, No description provided");
+    }
+    tasklist.add(args[2].to_string());
+    display_list(tasklist);
+}
+
+fn delete_task(tasklist: &mut TaskList, args: Vec<String>) {
+    if args.len() < 3 {
+        eprintln!("Failed to delete task, No id provided");
+    }
+    match args[2].parse::<usize>() {
+        Ok(id) => tasklist.delete(id),
+        Err(_) => eprint!("Invalid ID provided"),
+    }
+    display_list(tasklist);
+}
+
+fn complete_task(tasklist: &mut TaskList, args: Vec<String>) {
+    if args.len() < 3 {
+        eprintln!("Failed to complete task, No id provided");
+    }
+    match args[2].parse::<usize>() {
+        Ok(id) => tasklist.complete(id),
+        Err(_) => eprint!("Invalid ID provided"),
+    }
+    display_list(tasklist);
+}
+
+fn uncomplete_task(tasklist: &mut TaskList, args: Vec<String>) {
+    if args.len() < 3 {
+        eprintln!("Failed to uncomplete task, No id provided");
+    }
+    match args[2].parse::<usize>() {
+        Ok(id) => tasklist.uncomplete(id),
+        Err(_) => eprint!("Invalid ID provided"),
+    }
+    display_list(tasklist);
+}
+
+fn flush_tasks(tasklist: &mut TaskList) {
+    tasklist.flush();
+}
 fn main() {
     const FILENAME: &str = "todo-data.json";
 
@@ -96,11 +155,6 @@ fn main() {
         Ok(data) => data,
         Err(_) => TaskList::new(),
     };
-    tasklist.add("Test1".to_string());
-    tasklist.add("Test2".to_string());
-    tasklist.add("Test3".to_string());
-
-    tasklist.complete(1);
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -109,11 +163,12 @@ fn main() {
     }
     let command = &args[1];
     match command.as_str() {
-        "list" => println!("List all tasks"),
-        "add" => println!("Add a task"),
-        "del" => println!("Delete a task"),
-        "done" => println!("Un-complete a task"),
-        "undo" => println!("Complete a task"),
+        "list" => display_list(&tasklist),
+        "add" => add_task(&mut tasklist, args),
+        "del" => delete_task(&mut tasklist, args),
+        "done" => complete_task(&mut tasklist, args),
+        "undo" => uncomplete_task(&mut tasklist, args),
+        "flush" => flush_tasks(&mut tasklist),
         "help" => print_help(),
         _ => println!("Unknown command"),
     }
